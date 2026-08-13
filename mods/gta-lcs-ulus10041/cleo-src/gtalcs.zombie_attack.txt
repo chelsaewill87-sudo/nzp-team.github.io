@@ -1,0 +1,67 @@
+{$CLEO .csi}
+thread 'ZOMBIE'
+
+// Original prototype for GTA LCS ULUS-10041 through CLEO PSP.
+// Activates the game's documented/verified "Peds Attack You" cheat input.
+// This creates hostile pedestrian behavior; it does not copy NZ:P assets or code.
+
+var
+    0@ : Integer // platform / function address
+    1@ : Integer // byte / temporary
+    2@ : Integer // AddToCheatString function
+    7@ : Integer // cheat string pointer
+    8@ : Integer // byte index
+end
+
+// Resolve the cheat-input function in the same way as the bundled LCS cheat menu.
+0DD5: 0@ = get_platform
+if
+    0@ == 1
+then
+    0DD0: 2@ = get_label_addr @efunc_CPad_AddToCheatString
+    0DD1: 2@ = get_func_addr_by_cstr_name 2@
+else
+    0DD0: 2@ = get_label_addr @eptn_CPad_AddToCheatString
+    0DDA: 2@ = get_pattern_addr_cstr 2@ index 0
+end
+
+if
+    2@ == 0
+then
+    end_thread
+end
+
+// Index 31 in the bundled LCS cheat menu is "Peds Attack You".
+// Its input sequence is 112112LS.
+0DD0: 7@ = get_label_addr @cheat_input
+for 8@ = 0 to 7
+    0DD8: 1@ = read_mem_addr 7@ size 1 add_ib 0
+    7@ += 1
+    0DD0: 0@ = get_label_addr @inst_CPad
+    0DDE: call_func 2@ add_ib 0 __pad_inst 'i' 0@ __char 'i' 1@
+end
+
+// Give the player a moment to see the effect before the script exits.
+// This source must be compiled with Sanny Builder using CLEO PSP LCS definitions.
+wait 250
+end_thread
+
+:cheat_input
+hex
+    "112112LS" 00
+end
+
+:efunc_CPad_AddToCheatString
+hex
+    "_ZN4CPad16AddToCheatStringEc" 00
+end
+
+:eptn_CPad_AddToCheatString
+hex
+    "?? ?? ?? ?? 14 00 B1 AF 00 2E 05 00 25 88 80 00" 00
+end
+
+:inst_CPad
+hex
+    00 00 00 00 00 00 00 00
+end

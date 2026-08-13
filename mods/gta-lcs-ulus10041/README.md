@@ -4,7 +4,9 @@ This folder contains a **CWCheat-style configuration** for a legally owned USA c
 
 ## What this version does
 
-The configuration provides a survival-oriented preset using verified baseline cheats: infinite health, infinite armor, never wanted, optional armed pedestrians, Molotovs, SMG and M16/AK ammunition, shotgun ammunition, and optional maximum wanted level. These settings create a tougher “zombie survival” atmosphere, but they do **not** create actual zombie models, zombie hordes, or new pedestrian AI. Those features would require a separate, version-matched plugin or script and cannot be safely represented with invented memory addresses.
+The configuration provides a survival-oriented preset using verified baseline cheats: infinite health, infinite armor, never wanted, optional armed pedestrians, Molotovs, SMG and M16/AK ammunition, shotgun ammunition, and optional maximum wanted level.
+
+This package now also includes `cleo-src/gtalcs.zombie_attack.txt`, an **original CLEO PSP source prototype** that invokes GTA LCS’s existing “Peds Attack You” cheat input (`112112LS`). That produces real hostile-pedestrian behavior in the game engine and is the first zombie-like action layer. It is not a full NZ:P wave system yet: the current prototype does not add zombie models, round counters, spawn-point control, barricades, perks, or custom AI.
 
 | Menu entry | Purpose | Status |
 |---|---|---|
@@ -13,7 +15,14 @@ The configuration provides a survival-oriented preset using verified baseline ch
 | Never Wanted | Removes police pressure for survival testing | Verified baseline code |
 | Pedestrians Have Weapons | Optional chaos/challenge setting | Verified baseline code |
 | Molotovs / weapon ammo | Supplies survival weapons and ammunition | Verified baseline code |
-| True zombie spawning and AI | Actual zombie-mode behavior | Not included in this CWCheat-only version |
+| Hostile pedestrian prototype | Activates the game’s existing pedestrian-attack behavior | Included as CLEO PSP source; requires compilation and testing |
+| Round-based hordes, barricades, perks, and custom zombie AI | Full NZ:P-style mode | Not yet implemented |
+
+## CLEO prototype installation and build status
+
+The `.txt` file is **source code**, not a ready-to-run `.csi` binary. Compile it with Sanny Builder using the CLEO PSP LCS opcode definitions described by the [CLEO PSP project](https://github.com/cleolibrary/GTALCS.GTAVCS.PSP.CLEO). The resulting `.csi` should be copied to `PSP/PLUGINS/cleo/lcs/` on the PPSSPP memory stick. CLEO PSP documentation lists ULUS10041 support and PPSSPP 1.11.2 or higher as requirements. Test it on a backup save and enable only one behavior at a time.
+
+The prototype deliberately uses the existing verified “Peds Attack You” cheat sequence rather than fabricated memory addresses. A later phase can add round state and controlled spawning after the compiled prototype has been tested on the exact ULUS-10041 build.
 
 ## Installation on Android PPSSPP
 
