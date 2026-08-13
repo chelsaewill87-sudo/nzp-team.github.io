@@ -19,6 +19,11 @@ This package now also includes two **original CLEO PSP source prototypes**. `gta
 | Capped roaming horde | Spawns up to six nearby pedestrians and refreshes pursuit objectives | Included as CLEO PSP source; requires compilation and stability testing |
 | Large persistent hordes, round logic, barricades, perks, and advanced pathfinding | Full Days Gone/NZ:P-style mode | Not yet implemented |
 
+## Build materials
+
+- [Sanny Builder and CLEO PSP Compilation Guide](docs/SANNY_BUILDER_CLEO_PSP_GUIDE.md)
+- [Android PPSSPP Test-Build Checklist](docs/TEST_BUILD_CHECKLIST.md)
+
 ## CLEO prototype installation and build status
 
 The `.txt` file is **source code**, not a ready-to-run `.csi` binary. Compile it with Sanny Builder using the CLEO PSP LCS opcode definitions described by the [CLEO PSP project](https://github.com/cleolibrary/GTALCS.GTAVCS.PSP.CLEO). The resulting `.csi` should be copied to `PSP/PLUGINS/cleo/lcs/` on the PPSSPP memory stick. CLEO PSP documentation lists ULUS10041 support and PPSSPP 1.11.2 or higher as requirements. Test it on a backup save and enable only one behavior at a time.
