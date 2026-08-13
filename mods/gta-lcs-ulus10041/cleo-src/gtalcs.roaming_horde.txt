@@ -1,0 +1,159 @@
+{$CLEO .csa}
+thread 'HORDE'
+
+// Original Days Gone-inspired prototype for GTA LCS ULUS-10041.
+// Spawns a capped group of random pedestrians around the player and assigns
+// each a verified LCS kill-player-on-foot objective.
+// This uses no NZ:P assets or code and is intentionally capped for PPSSPP.
+
+var
+    1@ : Integer // player handle
+    2@ : Integer // player actor
+    3@ : Integer // newly spawned ped
+    5@ : Float   // x offset
+    6@ : Float   // y offset
+    7@ : Float   // spawn x
+    8@ : Float   // spawn y
+    9@ : Float   // spawn z
+    10@ : Integer // horde ped 1
+    11@ : Integer // horde ped 2
+    12@ : Integer // horde ped 3
+    13@ : Integer // horde ped 4
+    14@ : Integer // horde ped 5
+    15@ : Integer // horde ped 6
+end
+
+// Android PPSSPP uses $537; PSP uses $536, as in the CLEO PSP LCS examples.
+0DD5: 0@ = get_platform
+if
+    0@ == 1
+then
+    008B: 1@ = $537
+else
+    008B: 1@ = $536
+end
+if
+    825B: not player 1@ defined
+then
+    end_thread
+end
+
+// Spawn six nearby infected pedestrians. The cap is deliberate for stability.
+gosub @spawn_ped
+10@ = 3@
+gosub @spawn_ped
+11@ = 3@
+gosub @spawn_ped
+12@ = 3@
+gosub @spawn_ped
+13@ = 3@
+gosub @spawn_ped
+14@ = 3@
+gosub @spawn_ped
+15@ = 3@
+
+// Refresh pursuit objectives once per second while the player exists.
+while true
+    wait 1000
+    if
+        825B: not player 1@ defined
+    then
+        break
+    end
+
+    if
+        0572: does_char_exist 10@
+    then
+        01CF: set_char 10@ obj kill_player_on_foot 1@
+        031E: set_char 10@ running 1
+    end
+    if
+        0572: does_char_exist 11@
+    then
+        01CF: set_char 11@ obj kill_player_on_foot 1@
+        031E: set_char 11@ running 1
+    end
+    if
+        0572: does_char_exist 12@
+    then
+        01CF: set_char 12@ obj kill_player_on_foot 1@
+        031E: set_char 12@ running 1
+    end
+    if
+        0572: does_char_exist 13@
+    then
+        01CF: set_char 13@ obj kill_player_on_foot 1@
+        031E: set_char 13@ running 1
+    end
+    if
+        0572: does_char_exist 14@
+    then
+        01CF: set_char 14@ obj kill_player_on_foot 1@
+        031E: set_char 14@ running 1
+    end
+    if
+        0572: does_char_exist 15@
+    then
+        01CF: set_char 15@ obj kill_player_on_foot 1@
+        031E: set_char 15@ running 1
+    end
+end
+
+// Safe cleanup when the player becomes invalid or the script is stopped.
+if
+    0572: does_char_exist 10@
+then
+    0354: remove_char_elegantly 10@
+end
+if
+    0572: does_char_exist 11@
+then
+    0354: remove_char_elegantly 11@
+end
+if
+    0572: does_char_exist 12@
+then
+    0354: remove_char_elegantly 12@
+end
+if
+    0572: does_char_exist 13@
+then
+    0354: remove_char_elegantly 13@
+end
+if
+    0572: does_char_exist 14@
+then
+    0354: remove_char_elegantly 14@
+end
+if
+    0572: does_char_exist 15@
+then
+    0354: remove_char_elegantly 15@
+end
+end_thread
+
+:spawn_ped
+// Choose a random point 15–30 world units from the player.
+020D: generate_random_float_in_range -30.0 30.0 store_to 5@
+020D: generate_random_float_in_range -30.0 30.0 store_to 6@
+if and
+    5@ > -15.0
+    5@ < 15.0
+then
+    5@ += 20.0
+end
+01FA: get_player_char 1@ store_to 2@
+04C9: get_offset_from_char_in_world_coords 2@ offset 5@ 6@ 0.0 store_to 7@ 8@ 9@
+037B: create_random_char 7@ 8@ 9@ store_to 3@
+if
+    0572: does_char_exist 3@
+then
+    01CA: dont_remove_char 3@
+    031E: set_char 3@ running 1
+    // Verified Stories opcode: kill player on foot.
+    01CF: set_char 3@ obj kill_player_on_foot 1@
+    // Extra durability is used as an original “infected” toughness preset.
+    0630: set_char_max_health 3@ to 300
+    0228: set_char_health 3@ to 300
+end
+return
