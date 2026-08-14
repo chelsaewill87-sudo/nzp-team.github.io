@@ -1,196 +1,176 @@
 <!doctype html>
 <html lang="en-us">
-  <head>
-	<meta charset="utf-8">
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<meta name=viewport content="width=device-width, initial-scale=1">
-	<meta content="Nazi Zombies: Portable" property="og:title" />
-    	<meta content="Call of Duty: Zombies de-make, now in your browser via WebGL!" property="og:description" />
-    	<meta content="https://nzp-team.github.io/latest/game.html" property="og:url" />
-   	<meta content="hhttps://nzp-team.github.io/latest/nzportable.ico" property="og:image" />
-	<meta content="#6e0d00" data-react-helmet="true" name="theme-color" />
-	<title>NZ: Portable</title>
-	<link rel="icon" href="nzportable.ico">
-	<style>
-	html,body { background-color:#000000; color:#808080; height:100%;width:100%;margin:0;padding:0;}
-	.emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
-	div.emscripten { text-align: center; padding:0; margin: 0;}
-	/* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-	canvas.emscripten { border: 0px none; width:100%; height:100%; padding:0; margin: 0;}
-	</style>
-  </head>
-  <body ondrop="gotdrop(event);" ondragover="event.preventDefault()">
-	<div class="emscripten" id="status">Please allow/unblock our javascript to play.</div>
-	<div id="dropzone" ondrop="gotdrop(event);" ondragover="event.preventDefault()" hidden=1>Drop Zone</div>
-	<button type="button" onclick="begin()" id="begin" hidden=1>Click To Begin!</button>
-	<div class="emscripten">
-		<progress value="0" max="100" id="progress" hidden=1></progress>  
-	</div>
-	<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" hidden=1></canvas>
-	<script type='text/javascript'>
-// connect to canvas
-var Module = {
-	files:
-	{
-		"default.fmf" : "default.fmf",
-		"nzp/game.pk3" : "nzp/game.pk3",
-		"nzp/progs.pk3" : "nzp/progs.pk3"
-	},
-	print: function(msg)
-	{	//stdout...
-		console.log(msg);
-	},
-	printErr: function(text)
-	{	//stderr...
-		console.log(text);
-	},
-	canvas: document.getElementById('canvas'),	//for webgl to attach to
-	setStatus: function(text)
-	{	//gets spammed some prints during startup. blame emscripten.
-		if (Module.setStatus.interval)
-			clearInterval(Module.setStatus.interval);
-		var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-		var statusElement = document.getElementById('status');
-		var progressElement = document.getElementById('progress');
-		if (m) {
-			text = m[1];
-			progressElement.value = parseInt(m[2])*100;
-			progressElement.max = parseInt(m[4])*100;
-			progressElement.hidden = false;
-		} else {
-			progressElement.value = null;
-			progressElement.max = null;
-			progressElement.hidden = true;
-		}
-		statusElement.innerHTML = text;
-		statusElement.hidden = text.length==0;
-	},
-//	preRun: [],
-	totalDependencies: 0,
-	monitorRunDependencies: function(left)
-	{	//progress is progress...
-		this.totalDependencies = Math.max(this.totalDependencies, left);
-		Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
-	},
-//	onRuntimeInitialized: function(){},
-	postRun:
-	[	//each of these are called after main was run. we should have our mainloop set up now
-		function()
-		{
-			if (Module["sched"] === undefined)
-			{	//our main function failed to set up the main loop. ie: main didn't get called. panic.
-				alert("Unable to initialise. You may need to restart your browser. If you get this often and inconsistently, consider using a 64bit browser instead.");
-				Module.setStatus("Initialisation Failure");
-			}
-		}
-	],
-};
-function begin()
-{
-	if (Module.began)
-		return;
-	Module.began = true;
-	document.getElementById('dropzone').hidden = true;
-	document.getElementById('begin').hidden = true;
-	Module.setStatus('Downloading...');
-
-	// make a script. do it the hard way for the error.
-	var s = document.createElement('script');
-	// set it up
-	s.setAttribute('src',"ftewebgl.js");
-	s.setAttribute('type',"text/javascript");
-	s.setAttribute('charset',"utf-8");
-	s.addEventListener('error', function() {alert("Oh noes! we got an error!"); Module.setStatus("Unable to download engine javascript");}, false);
-	// add to DOM
-	document.head.appendChild(s);
-}
-
-//stuff to facilitate our drag+drop filesystem support
-function fixupfilepath(fname, path)
-{	//we just have a filename, try to guess where to put it.
-	if (path != "")
-		return path+fname;	//already has a path. use it. this allows people to drag+drop gamedirs.
-	var ext = fname.substr(fname.lastIndexOf('.') + 1);
-	if (ext == 'fmf' || ext == 'kpf')	//these are the only files that really make sense in the root.
-		return fname;
-	if (ext == 'bsp' || ext == 'map' || ext == 'lit' || ext == 'lux')
-		return "id1/maps/" + fname;	//bsps get their own extra subdir
-	return "id1/" + fname;	//probably a pak. maybe a cfg, no idea really.
-}
-function showfiles()
-{	//print the pending file list in some pretty way
-	if (Module.began)
-		return;
-	Module.setStatus('');
-	document.getElementById('dropzone').hidden = false;
-	document.getElementById('begin').hidden = false;
-	var nt = "Drag gamedirs or individual package files here to make them available!<br/>Active Files:<br/><pre>";
-	var keys = Object.keys(Module.files);
-	for(var i = 0; i < keys.length; i++)
-	{
-		if (Module.files[keys[i]] instanceof ArrayBuffer)
-		{
-			var sz = Module.files[keys[i]].byteLength;
-			if (sz > 512*1024)
-				sz = (sz / (1024*1024)) + "mb";
-			else if (sz > 512)
-				sz = (sz / 1024) + "kb";
-			else
-				sz = (sz) + " bytes";
-			nt += "    " + keys[i] + " ("+sz+")<br/>";
-		}
-		else
-			nt += "    " + keys[i] + "<br/>";
-	}
-	nt += "</pre>("+keys.length+" files)";
-	document.getElementById('dropzone').innerHTML = nt;
-}
-function scanfiles(item,path)
-{	//for directory drops
-	if (item.isFile)
-	{
-		item.file(function(f)
-		{
-			let n = fixupfilepath(f.name, path);
-			Module.files[n]=f.arrayBuffer();	//actually a promise...
-			Module.files[n].then(buf=>{Module.files[n]=buf;showfiles();});	//try and resolve it now.
-    	});
-	}
-	else if (item.isDirectory)
-	{
-		// Get folder contents
-		var dirReader = item.createReader();
-		dirReader.readEntries(function(entries)
-		{
-			for (var i=0; i<entries.length; i++)
-				scanfiles(entries[i], path + item.name + "/");
-		});
-	}
-}
-function gotdrop(ev)
-{	//user drag+dropped something. 
-	ev.preventDefault();
-	for (var i = 0; i < ev.dataTransfer.items.length; i++)
-		if (ev.dataTransfer.items[i].webkitGetAsEntry)
-		{
-			var d = ev.dataTransfer.items[i].webkitGetAsEntry();
-			if (d)
-				scanfiles(d, "");
-		}
-		else if (ev.dataTransfer.items[i].kind === 'file')
-		{
-			var f = ev.dataTransfer.items[i].getAsFile();
-			var n = fixupfilepath(f.name);
-			Module.files[n]=f.arrayBuffer();	//actually a promise...
-			Module.files[n].then(buf=>{Module.files[n]=buf;showfiles();});	//try and resolve it now.
-		}
-	showfiles();
-}
-if (window.location.hash != "" || Object.keys(Module.files).length)
-	begin();		//if the url has a #foo.fmf then just begin instantly, 
-else
-	showfiles();	//otherwise show our lame file dropper and wait for the user to click 'go'.
-    </script>  
-    <img src="https://hits.sh/hits.sh/nzp-team.github.io/latest/game.html/hits.svg" style="opacity:0;width:0px;">
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090b0d">
+  <meta name="description" content="NZ:P Remaster — the portable zombie survival experience in your browser.">
+  <meta property="og:title" content="NZ:P Remaster">
+  <meta property="og:description" content="A sharper, darker browser experience for NZ:P.">
+  <title>NZ:P Remaster</title>
+  <link rel="icon" href="nzportable.ico">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #07090b;
+      --panel: rgba(13, 17, 20, .92);
+      --panel-soft: rgba(23, 28, 32, .76);
+      --line: rgba(190, 203, 210, .2);
+      --muted: #8e9aa0;
+      --text: #e8edef;
+      --red: #d6473e;
+      --red-bright: #ff6254;
+      --amber: #f2b45a;
+      --green: #72c699;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--ink); }
+    body { color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button { font: inherit; }
+    .viewport { position: fixed; inset: 0; overflow: hidden; background: #050607; }
+    .viewport::before { content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: .18; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.03) 4px, transparent 5px); mix-blend-mode: screen; }
+    .viewport::after { content: ""; position: absolute; inset: 0; z-index: 6; pointer-events: none; box-shadow: inset 0 0 180px 32px rgba(0,0,0,.7); }
+    canvas.emscripten { position: absolute; inset: 0; z-index: 1; display: block; width: 100%; height: 100%; border: 0; padding: 0; margin: 0; background: #000; }
+    .shell { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 28px; background: radial-gradient(circle at 50% 50%, rgba(95, 28, 24, .12), transparent 48%), linear-gradient(135deg, rgba(5,7,9,.98), rgba(11,14,17,.9)); transition: opacity .55s ease, visibility .55s ease; }
+    .shell.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .boot-card { width: min(780px, 100%); border: 1px solid var(--line); background: linear-gradient(145deg, rgba(20,25,29,.97), rgba(7,10,12,.96)); box-shadow: 0 26px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.025) inset; }
+    .boot-topline { height: 4px; background: linear-gradient(90deg, var(--red), var(--red-bright) 42%, transparent 42%); }
+    .card-content { padding: clamp(24px, 5vw, 52px); }
+    .eyebrow { display: flex; align-items: center; gap: 10px; color: var(--amber); font-size: 11px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--amber); }
+    h1 { margin: 15px 0 6px; font-size: clamp(48px, 10vw, 100px); line-height: .88; letter-spacing: -.075em; font-weight: 900; text-transform: uppercase; }
+    h1 span { color: var(--red-bright); }
+    .tagline { max-width: 480px; margin: 0; color: #b7c0c4; font-size: clamp(14px, 2vw, 18px); line-height: 1.6; }
+    .status-row { display: flex; justify-content: space-between; gap: 20px; margin: 36px 0 10px; color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    #status { color: var(--text); }
+    #progress { width: 100%; height: 5px; border: 0; appearance: none; background: #1d2428; }
+    #progress::-webkit-progress-bar { background: #1d2428; }
+    #progress::-webkit-progress-value { background: linear-gradient(90deg, var(--red), var(--amber)); }
+    #progress::-moz-progress-bar { background: linear-gradient(90deg, var(--red), var(--amber)); }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 24px; }
+    .action { border: 1px solid var(--red); padding: 13px 18px; color: #fff; background: linear-gradient(180deg, #ba3e36, #76241f); cursor: pointer; font-size: 12px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; transition: transform .2s ease, filter .2s ease; }
+    .action:hover, .action:focus-visible { filter: brightness(1.18); transform: translateY(-1px); }
+    .action.secondary { border-color: var(--line); background: rgba(255,255,255,.03); color: #c8d0d3; }
+    .hint { color: var(--muted); font-size: 12px; }
+    #dropzone { margin-top: 28px; border: 1px dashed rgba(190,203,210,.28); padding: 15px 16px; color: var(--muted); font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(0,0,0,.2); }
+    #dropzone strong { color: #dbe2e5; font-weight: 600; }
+    .footerline { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(190,203,210,.12); color: #667278; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
+    .corner { position: absolute; width: 18px; height: 18px; border-color: var(--red); border-style: solid; opacity: .8; }
+    .corner.tl { top: 18px; left: 18px; border-width: 1px 0 0 1px; } .corner.tr { top: 18px; right: 18px; border-width: 1px 1px 0 0; } .corner.bl { bottom: 18px; left: 18px; border-width: 0 0 1px 1px; } .corner.br { right: 18px; bottom: 18px; border-width: 0 1px 1px 0; }
+    .engine-tools { position: absolute; z-index: 12; top: 16px; right: 18px; display: flex; gap: 8px; opacity: .7; transition: opacity .2s; }
+    .engine-tools:hover { opacity: 1; }
+    .icon-button { width: 38px; height: 32px; border: 1px solid rgba(255,255,255,.24); color: #dbe2e5; background: rgba(0,0,0,.5); cursor: pointer; }
+    .error { color: var(--red-bright) !important; }
+    @media (max-width: 620px) { .shell { padding: 14px; } .card-content { padding: 25px 20px; } .status-row { margin-top: 25px; } .footerline { flex-direction: column; } .hint { flex-basis: 100%; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+</head>
+<body ondrop="gotdrop(event);" ondragover="event.preventDefault()">
+  <main class="viewport" id="viewport">
+    <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" hidden></canvas>
+    <section class="shell" id="shell" aria-label="NZ:P Remaster loading screen">
+      <div class="boot-card">
+        <div class="boot-topline"></div>
+        <div class="card-content">
+          <div class="eyebrow">Portable survival // remaster build</div>
+          <h1>NZ<span>:</span>P</h1>
+          <p class="tagline">The outbreak is portable. The night is not. A sharper browser shell for the classic zombie survival experience.</p>
+          <div class="status-row"><span id="status" role="status" aria-live="polite">Preparing launch sequence...</span><span id="percent">0%</span></div>
+          <progress value="0" max="100" id="progress" aria-label="Loading progress"></progress>
+          <div class="controls">
+            <button type="button" class="action" onclick="begin()" id="begin">Launch NZ:P</button>
+            <button type="button" class="action secondary" onclick="toggleFullscreen()">Fullscreen</button>
+            <span class="hint">Drag a compatible gamedir or package here to add files.</span>
+          </div>
+          <div id="dropzone"><strong>ACTIVE LOADOUT</strong><br><span id="file-list">default.fmf · nzp/game.pk3 · nzp/progs.pk3</span></div>
+          <div class="footerline"><span>NZ:P REMASTER // WEBGL</span><span>Best with keyboard + mouse</span></div>
+        </div>
+      </div>
+    </section>
+    <div class="engine-tools"><button class="icon-button" type="button" onclick="toggleFullscreen()" aria-label="Toggle fullscreen">⛶</button></div>
+  </main>
+  <script>
+    var Module = {
+      files: { "default.fmf": "default.fmf", "nzp/game.pk3": "nzp/game.pk3", "nzp/progs.pk3": "nzp/progs.pk3" },
+      began: false,
+      print: function(msg) { console.log(msg); },
+      printErr: function(text) { console.warn(text); },
+      canvas: document.getElementById('canvas'),
+      setStatus: function(text) {
+        if (Module.setStatus.interval) clearInterval(Module.setStatus.interval);
+        var match = text && text.match(/([^(]+)\((\d+(?:\.\d+)?)\/(\d+)\)/);
+        var status = document.getElementById('status');
+        var progress = document.getElementById('progress');
+        if (match) {
+          var current = parseInt(match[2], 10), total = parseInt(match[3], 10);
+          progress.value = current * 100; progress.max = total * 100;
+          document.getElementById('percent').textContent = Math.round((current / total) * 100) + '%';
+          status.textContent = match[1].trim();
+        } else {
+          progress.value = text && /complete|launch/i.test(text) ? 100 : progress.value;
+          document.getElementById('percent').textContent = progress.value ? Math.round((progress.value / progress.max) * 100) + '%' : '—';
+          status.textContent = text || '';
+        }
+        status.classList.toggle('error', /unable|failure|error/i.test(text || ''));
+      },
+      totalDependencies: 0,
+      monitorRunDependencies: function(left) {
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        Module.setStatus(left ? 'Preparing engine...' : 'All downloads complete.');
+      },
+      postRun: [function() {
+        if (Module.sched === undefined) {
+          Module.setStatus('Initialisation failure — please retry.');
+          document.getElementById('begin').hidden = false;
+          document.getElementById('begin').textContent = 'Retry launch';
+        }
+      }]
+    };
+    function setShellVisible(visible) { document.getElementById('shell').classList.toggle('is-hidden', !visible); }
+    function begin() {
+      if (Module.began) return;
+      Module.began = true;
+      document.getElementById('begin').hidden = true;
+      Module.setStatus('Downloading engine...');
+      var script = document.createElement('script');
+      script.src = 'ftewebgl.js'; script.type = 'text/javascript'; script.charset = 'utf-8';
+      script.addEventListener('load', function() { setTimeout(function() { setShellVisible(false); }, 800); });
+      script.addEventListener('error', function() {
+        Module.began = false; Module.setStatus('Unable to download engine javascript.');
+        Module.setStatus(document.getElementById('status').textContent + ' Retry when the connection is ready.');
+        document.getElementById('begin').hidden = false; document.getElementById('begin').textContent = 'Retry launch';
+      });
+      document.head.appendChild(script);
+    }
+    function fixupfilepath(fname, path) {
+      if (path) return path + fname;
+      var ext = fname.substr(fname.lastIndexOf('.') + 1).toLowerCase();
+      if (ext === 'fmf' || ext === 'kpf') return fname;
+      if (ext === 'bsp' || ext === 'map' || ext === 'lit' || ext === 'lux') return 'id1/maps/' + fname;
+      return 'id1/' + fname;
+    }
+    function showfiles() {
+      if (Module.began) return;
+      var keys = Object.keys(Module.files);
+      document.getElementById('file-list').textContent = keys.join(' · ');
+      Module.setStatus('Ready to launch.');
+    }
+    function scanfiles(item, path) {
+      if (item.isFile) item.file(function(file) { var name = fixupfilepath(file.name, path); Module.files[name] = file.arrayBuffer(); Module.files[name].then(function(buf) { Module.files[name] = buf; showfiles(); }); });
+      else if (item.isDirectory) item.createReader().readEntries(function(entries) { entries.forEach(function(entry) { scanfiles(entry, path + item.name + '/'); }); });
+    }
+    function gotdrop(event) {
+      event.preventDefault();
+      Array.from(event.dataTransfer.items || []).forEach(function(item) {
+        if (item.webkitGetAsEntry) { var entry = item.webkitGetAsEntry(); if (entry) scanfiles(entry, ''); }
+        else if (item.kind === 'file') { var file = item.getAsFile(); var name = fixupfilepath(file.name, ''); Module.files[name] = file.arrayBuffer(); Module.files[name].then(function(buf) { Module.files[name] = buf; showfiles(); }); }
+      });
+      showfiles();
+    }
+    function toggleFullscreen() { var root = document.documentElement; if (!document.fullscreenElement) root.requestFullscreen && root.requestFullscreen(); else document.exitFullscreen && document.exitFullscreen(); }
+    window.addEventListener('error', function(event) { if (Module.began && event.message) Module.setStatus('Runtime warning — check the browser console.'); });
+    if (window.location.hash !== '' || Object.keys(Module.files).length) begin(); else showfiles();
+  </script>
+</body>
 </html>
